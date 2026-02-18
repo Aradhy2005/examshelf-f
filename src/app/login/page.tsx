@@ -1,8 +1,6 @@
 "use client";
 
-export const dynamic = "force-dynamic";
-
-import { useState } from "react";
+import { useState, Suspense } from "react"; // Added Suspense
 import {
   signInWithEmailAndPassword,
   signInWithPopup,
@@ -15,7 +13,8 @@ import { motion } from "framer-motion";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
 import toast from "react-hot-toast";
 
-export default function LoginPage() {
+// --- LOGIN CONTENT COMPONENT ---
+function LoginContent() {
   const router = useRouter();
 
   const [email, setEmail] = useState("");
@@ -24,9 +23,7 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
 
   const loginEmail = async () => {
-    if (!email || !password)
-      return toast.error("Enter email & password");
-
+    if (!email || !password) return toast.error("Enter email & password");
     try {
       setLoading(true);
       await signInWithEmailAndPassword(auth, email, password);
@@ -34,8 +31,9 @@ export default function LoginPage() {
       router.push("/");
     } catch {
       toast.error("Invalid credentials");
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   const loginGoogle = async () => {
@@ -46,19 +44,23 @@ export default function LoginPage() {
       router.push("/");
     } catch {
       toast.error("Google sign-in failed");
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   const resetPassword = async () => {
     if (!email) return toast.error("Enter email first");
-    await sendPasswordResetEmail(auth, email);
-    toast.success("Password reset email sent");
+    try {
+        await sendPasswordResetEmail(auth, email);
+        toast.success("Password reset email sent");
+    } catch (err) {
+        toast.error("Reset failed. Try again.");
+    }
   };
 
   return (
     <main className="min-h-screen flex items-center justify-center px-6 text-white relative overflow-hidden">
-
       {/* Glow Background */}
       <div className="absolute inset-0 -z-10 flex justify-center">
         <div className="w-[900px] h-[700px] bg-purple-600/10 blur-[160px] rounded-full" />
@@ -71,11 +73,8 @@ export default function LoginPage() {
         className="w-full max-w-md rounded-3xl bg-[#020617]/80 border border-white/10 p-10 shadow-2xl backdrop-blur-xl"
       >
         <h2 className="text-3xl font-bold text-center">Welcome Back</h2>
-        <p className="text-center text-gray-400 text-sm mt-2 mb-8">
-          Continue your focused preparation
-        </p>
+        <p className="text-center text-gray-400 text-sm mt-2 mb-8">Continue your focused preparation</p>
 
-        {/* Google Login */}
         <button
           onClick={loginGoogle}
           disabled={loading}
@@ -85,14 +84,12 @@ export default function LoginPage() {
           Continue with Google
         </button>
 
-        {/* Divider */}
         <div className="flex items-center gap-3 mb-6">
           <div className="flex-1 h-px bg-white/10" />
           <span className="text-xs text-gray-400">OR</span>
           <div className="flex-1 h-px bg-white/10" />
         </div>
 
-        {/* Email */}
         <input
           type="email"
           placeholder="Email address"
@@ -101,7 +98,6 @@ export default function LoginPage() {
           onChange={(e) => setEmail(e.target.value)}
         />
 
-        {/* Password */}
         <div className="relative mb-3">
           <input
             type={showPass ? "text" : "password"}
@@ -110,26 +106,15 @@ export default function LoginPage() {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
           />
-          <button
-            type="button"
-            onClick={() => setShowPass(!showPass)}
-            className="absolute right-3 top-3 text-gray-400 hover:text-white"
-          >
+          <button type="button" onClick={() => setShowPass(!showPass)} className="absolute right-3 top-3 text-gray-400 hover:text-white">
             {showPass ? <EyeOff size={18} /> : <Eye size={18} />}
           </button>
         </div>
 
-        {/* Forgot */}
         <div className="text-right mb-6">
-          <button
-            onClick={resetPassword}
-            className="text-sm text-purple-400 hover:underline"
-          >
-            Forgot password?
-          </button>
+          <button onClick={resetPassword} className="text-sm text-purple-400 hover:underline">Forgot password?</button>
         </div>
 
-        {/* Login Button */}
         <button
           onClick={loginEmail}
           disabled={loading}
@@ -141,10 +126,7 @@ export default function LoginPage() {
 
         <p className="text-center text-sm text-gray-400 mt-6">
           New here?{" "}
-          <span
-            onClick={() => router.push("/signup")}
-            className="text-purple-400 hover:underline cursor-pointer"
-          >
+          <span onClick={() => router.push("/signup")} className="text-purple-400 hover:underline cursor-pointer">
             Create an account
           </span>
         </p>
@@ -152,3 +134,15 @@ export default function LoginPage() {
     </main>
   );
 }
+
+// --- MAIN EXPORT ---
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<div className="h-screen bg-black" />}>
+      <LoginContent />
+    </Suspense>
+  );
+}
+
+// Move config to the bottom
+export const dynamic = "force-dynamic";
