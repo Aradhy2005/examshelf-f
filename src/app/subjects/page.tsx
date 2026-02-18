@@ -1,12 +1,12 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, Suspense } from "react"; // Added Suspense
 import { collection, getDocs, query, where, doc, getDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import { useSearchParams } from "next/navigation";
-import { useAuth } from "@/context/AuthContext"; // Ensure this path is correct
+import { useAuth } from "@/context/AuthContext"; 
 import { 
   BookOpen, Search, Filter, Sparkles, 
   ArrowUpRight, ShieldCheck, Zap, Layers 
@@ -29,7 +29,8 @@ type Unit = {
   price: number;
 };
 
-export default function SubjectsPage() {
+// 1. Move all your logic into this Content component
+function SubjectsContent() {
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [allUnits, setAllUnits] = useState<Unit[]>([]);
   const [unlockedUnits, setUnlockedUnits] = useState<string[]>([]);
@@ -45,23 +46,16 @@ export default function SubjectsPage() {
     "1": [1, 2], "2": [3, 4], "3": [5, 6], "4": [7, 8],
   };
 
-  const availableSemesters = selectedYear 
-    ? yearSemesters[selectedYear] 
-    : [1, 2, 3, 4, 5, 6, 7, 8];
-
   useEffect(() => {
     const fetchData = async () => {
       try {
-        // 1. Fetch Subjects
         const qSub = query(collection(db, "subjects"), where("published", "==", true));
         const snapSub = await getDocs(qSub);
         const subList = snapSub.docs.map(doc => ({ id: doc.id, ...doc.data() } as Subject));
         
-        // 2. Fetch All Units (to calculate deductions)
         const snapUnits = await getDocs(collection(db, "units"));
         const unitList = snapUnits.docs.map(doc => ({ id: doc.id, ...doc.data() } as Unit));
 
-        // 3. Fetch User Unlocked Units
         if (user) {
           const userDoc = await getDoc(doc(db, "users", user.uid));
           if (userDoc.exists()) {
@@ -92,77 +86,79 @@ export default function SubjectsPage() {
   if (loading) return <LoadingSkeleton />;
 
   return (
+    <div className="relative max-w-7xl mx-auto px-6 py-20 md:py-32">
+      <header className="max-w-3xl mb-16 space-y-6">
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/5 border border-white/10 text-[10px] font-bold tracking-[0.2em] uppercase text-purple-400">
+          <Zap size={10} className="fill-current" /> Active Curriculum 2026
+        </motion.div>
+        <h1 className="text-5xl md:text-7xl font-bold tracking-tight text-white leading-[1.1]">Curated <span className="text-gray-500">Subjects</span></h1>
+        <p className="text-lg text-gray-400 font-medium leading-relaxed">Engineered for high-performance students. Access verified units and notes.</p>
+      </header>
+
+      <div className="sticky top-6 z-50 mb-12">
+        <div className="bg-[#0d1117]/80 backdrop-blur-2xl border border-white/10 rounded-3xl p-2 shadow-2xl flex flex-col md:flex-row items-center gap-2">
+          <div className="relative flex-1 w-full group">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 group-focus-within:text-purple-400 transition-colors" size={18} />
+            <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search index..." className="w-full bg-transparent border-0 py-4 pl-12 pr-4 text-sm focus:ring-0 placeholder:text-gray-600" />
+          </div>
+          <div className="h-6 w-px bg-white/10 hidden md:block" />
+        </div>
+      </div>
+
+      <AnimatePresence mode="popLayout">
+        {filteredSubjects.length === 0 ? (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="py-20 text-center text-gray-500 font-mono">[SYSTEM_ERROR]: No records found.</motion.div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {filteredSubjects.map((sub, i) => (
+              <SubjectCard 
+                key={sub.id} 
+                sub={sub} 
+                index={i} 
+                allUnits={allUnits} 
+                unlockedUnits={unlockedUnits} 
+              />
+            ))}
+          </div>
+        )}
+      </AnimatePresence>
+
+      <footer className="mt-32 p-1 border-t border-white/5 pt-20">
+        <div className="bg-gradient-to-b from-white/[0.03] to-transparent rounded-[3rem] border border-white/10 p-12 text-center overflow-hidden relative">
+          <div className="absolute -top-24 -left-24 w-64 h-64 bg-purple-500/10 blur-[100px]" />
+          <h2 className="text-3xl font-bold mb-4 tracking-tight">Request Missing Intel</h2>
+          <p className="text-gray-500 max-w-md mx-auto mb-10">Don't see your subject? Our content team can prioritize your university curriculum within 48 hours.</p>
+          <Link href="/request" className="inline-flex items-center gap-3 px-8 py-4 bg-white text-black rounded-2xl font-black text-sm uppercase tracking-widest hover:bg-purple-500 hover:text-white transition-all">Request Subject <ArrowUpRight size={18} /></Link>
+        </div>
+      </footer>
+    </div>
+  );
+}
+
+// 2. THE MAIN PAGE EXPORT WITH SUSPENSE
+export default function SubjectsPage() {
+  return (
     <main className="relative min-h-screen bg-[#02040a] text-white selection:bg-purple-500/30">
       <div className="fixed inset-0 pointer-events-none">
         <div className="absolute top-0 left-1/4 w-[500px] h-[500px] bg-purple-600/10 blur-[120px] animate-pulse" />
         <div className="absolute bottom-0 right-1/4 w-[500px] h-[500px] bg-indigo-600/10 blur-[120px]" />
       </div>
 
-      <div className="relative max-w-7xl mx-auto px-6 py-20 md:py-32">
-        <header className="max-w-3xl mb-16 space-y-6">
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/5 border border-white/10 text-[10px] font-bold tracking-[0.2em] uppercase text-purple-400">
-            <Zap size={10} className="fill-current" /> Active Curriculum 2026
-          </motion.div>
-          <h1 className="text-5xl md:text-7xl font-bold tracking-tight text-white leading-[1.1]">Curated <span className="text-gray-500">Subjects</span></h1>
-          <p className="text-lg text-gray-400 font-medium leading-relaxed">Engineered for high-performance students. Access verified units and notes.</p>
-        </header>
-
-        <div className="sticky top-6 z-50 mb-12">
-          <div className="bg-[#0d1117]/80 backdrop-blur-2xl border border-white/10 rounded-3xl p-2 shadow-2xl flex flex-col md:flex-row items-center gap-2">
-            <div className="relative flex-1 w-full group">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 group-focus-within:text-purple-400 transition-colors" size={18} />
-              <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search index..." className="w-full bg-transparent border-0 py-4 pl-12 pr-4 text-sm focus:ring-0 placeholder:text-gray-600" />
-            </div>
-            <div className="h-6 w-px bg-white/10 hidden md:block" />
-            
-          </div>
-        </div>
-
-        <AnimatePresence mode="popLayout">
-          {filteredSubjects.length === 0 ? (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="py-20 text-center text-gray-500 font-mono">[SYSTEM_ERROR]: No records found.</motion.div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {filteredSubjects.map((sub, i) => (
-                <SubjectCard 
-                  key={sub.id} 
-                  sub={sub} 
-                  index={i} 
-                  allUnits={allUnits} 
-                  unlockedUnits={unlockedUnits} 
-                />
-              ))}
-            </div>
-          )}
-        </AnimatePresence>
-
-        <footer className="mt-32 p-1 border-t border-white/5 pt-20">
-          <div className="bg-gradient-to-b from-white/[0.03] to-transparent rounded-[3rem] border border-white/10 p-12 text-center overflow-hidden relative">
-            <div className="absolute -top-24 -left-24 w-64 h-64 bg-purple-500/10 blur-[100px]" />
-            <h2 className="text-3xl font-bold mb-4 tracking-tight">Request Missing Intel</h2>
-            <Link href="/request" className="inline-flex items-center gap-3 px-8 py-4 bg-white text-black rounded-2xl font-black text-sm uppercase tracking-widest hover:bg-purple-500 hover:text-white transition-all">Request Subject <ArrowUpRight size={18} /></Link>
-          </div>
-        </footer>
-      </div>
+      <Suspense fallback={<LoadingSkeleton />}>
+        <SubjectsContent />
+      </Suspense>
     </main>
   );
 }
 
+// --- Keep SubjectCard and Sub-components as they were ---
 function SubjectCard({ sub, index, allUnits, unlockedUnits }: { sub: Subject, index: number, allUnits: Unit[], unlockedUnits: string[] }) {
-  
-  // DYNAMIC PRICE CALCULATION
   const dynamicPrice = useMemo(() => {
     const basePrice = sub.salePrice ?? sub.price ?? 0;
-    
-    // Find units belonging to this subject that the user has ALREADY purchased
     const purchasedUnitsForThisSubject = allUnits.filter(unit => 
       unit.subjectId === sub.id && unlockedUnits.includes(unit.id)
     );
-
-    // Calculate sum of already paid units
     const alreadyPaidAmount = purchasedUnitsForThisSubject.reduce((sum, unit) => sum + (unit.price || 0), 0);
-
-    // Return remaining amount (Ensuring it doesn't go below 0)
     return Math.max(basePrice - alreadyPaidAmount, 0);
   }, [sub, allUnits, unlockedUnits]);
 
@@ -222,7 +218,6 @@ function SubjectCard({ sub, index, allUnits, unlockedUnits }: { sub: Subject, in
   );
 }
 
-// ... Keep Badge, FeatureItem, and LoadingSkeleton exactly as they were ...
 function Badge({ text, highlight = false }: { text: string, highlight?: boolean }) {
   return (
     <span className={`text-[10px] font-bold px-2.5 py-1 rounded-md border tracking-wide uppercase ${
@@ -251,4 +246,7 @@ function LoadingSkeleton() {
       <span className="mt-6 text-[10px] font-bold tracking-[0.5em] text-gray-600 uppercase">Synchronizing Index</span>
     </div>
   );
-} 
+}
+
+// 3. FORCE DYNAMIC RENDER
+export const dynamic = "force-dynamic";

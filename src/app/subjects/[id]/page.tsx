@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react"; // Added Suspense
 import { useParams, useRouter } from "next/navigation";
 import {
   doc,
@@ -34,7 +34,8 @@ type Unit = {
   previewSlug?: string;
 };
 
-export default function SubjectDetailPage() {
+// 1. Move all logic into this internal component
+function SubjectDetailContent() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const { user, loading } = useAuth();
@@ -80,13 +81,9 @@ export default function SubjectDetailPage() {
         ...(d.data() as Omit<Unit, "id">),
       }));
 
-     const sorted = list.sort((a, b) => a.unitNumber - b.unitNumber);
-    setUnits(sorted);
-     setAllUnitsUploaded(sorted.length >= 5);
-
-      const REQUIRED_UNITS = 5;
-      const allUnitsUploaded = list.length >= REQUIRED_UNITS;
-
+      const sorted = list.sort((a, b) => a.unitNumber - b.unitNumber);
+      setUnits(sorted);
+      setAllUnitsUploaded(sorted.length >= 5);
     };
 
     fetchUnits();
@@ -182,77 +179,76 @@ export default function SubjectDetailPage() {
   };
 
   /* UNIT PAYMENT */
- const handleUnitPayment = async (unit: Unit) => {
-  if (!user) {
-    router.push(`/login?redirect=/subjects/${id}`);
-    return;
-  }
-
-  try {
-    setProcessing(true);
-
-    const res = await fetch("/api/create-order", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        userId: user.uid,
-        type: "unit",
-        subjectId: id,
-        unitId: unit.id,
-      }),
-    });
-
-    const order = await res.json();
-    if (!order.id) {
-      setProcessing(false);
+  const handleUnitPayment = async (unit: Unit) => {
+    if (!user) {
+      router.push(`/login?redirect=/subjects/${id}`);
       return;
     }
 
-    const rzp = new (window as any).Razorpay({
-      key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
-      amount: order.amount,
-      currency: order.currency,
-      name: "ExamShelf",
-      description: unit.title,
-      order_id: order.id,
+    try {
+      setProcessing(true);
 
-      handler: async (response: any) => {
-        try {
-          const verifyRes = await fetch("/api/verify-payment", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              ...response,
-              userId: user.uid,
-              type: "unit",
-              subjectId: id,
-              unitId: unit.id,
-            }),
-          });
+      const res = await fetch("/api/create-order", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userId: user.uid,
+          type: "unit",
+          subjectId: id,
+          unitId: unit.id,
+        }),
+      });
 
-          const verifyData = await verifyRes.json();
-
-          if (verifyData.success) {
-            setUnlockedUnits((prev) => [...prev, unit.id]);
-            setPaymentSuccess(true);
-          }
-        } catch (err) {
-          console.error("Verification failed:", err);
-        }
-
+      const order = await res.json();
+      if (!order.id) {
         setProcessing(false);
-      },
+        return;
+      }
 
-      theme: { color: "#7c3aed" },
-    });
+      const rzp = new (window as any).Razorpay({
+        key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
+        amount: order.amount,
+        currency: order.currency,
+        name: "ExamShelf",
+        description: unit.title,
+        order_id: order.id,
 
-    rzp.open();
-  } catch (err) {
-    console.error(err);
-    setProcessing(false);
-  }
-};
+        handler: async (response: any) => {
+          try {
+            const verifyRes = await fetch("/api/verify-payment", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                ...response,
+                userId: user.uid,
+                type: "unit",
+                subjectId: id,
+                unitId: unit.id,
+              }),
+            });
 
+            const verifyData = await verifyRes.json();
+
+            if (verifyData.success) {
+              setUnlockedUnits((prev) => [...prev, unit.id]);
+              setPaymentSuccess(true);
+            }
+          } catch (err) {
+            console.error("Verification failed:", err);
+          }
+
+          setProcessing(false);
+        },
+
+        theme: { color: "#7c3aed" },
+      });
+
+      rzp.open();
+    } catch (err) {
+      console.error(err);
+      setProcessing(false);
+    }
+  };
 
   if (!subject || loading) {
     return <p className="p-10 text-white">Loading...</p>;
@@ -260,14 +256,12 @@ export default function SubjectDetailPage() {
 
   return (
     <main className="relative min-h-screen px-6 py-24 text-white overflow-hidden">
-
       {/* Glow */}
       <div className="absolute inset-0 -z-10 flex justify-center">
         <div className="w-[900px] h-[600px] bg-purple-600/10 blur-[160px] rounded-full" />
       </div>
 
       <div className="max-w-6xl mx-auto">
-
         {paymentSuccess && (
           <div className="mb-10 rounded-xl border border-green-500/40 bg-green-500/10 p-4 text-green-400 text-sm flex items-center gap-2">
             <CheckCircle size={18} /> Payment successful! Content unlocked.
@@ -275,10 +269,8 @@ export default function SubjectDetailPage() {
         )}
 
         <div className="grid lg:grid-cols-3 gap-14">
-
           {/* LEFT CONTENT */}
           <div className="lg:col-span-2">
-
             <h1 className="text-4xl md:text-5xl font-semibold tracking-tight">
               {subject.name}
             </h1>
@@ -345,37 +337,34 @@ export default function SubjectDetailPage() {
                       )}
                     </div>
 
-<div className="mt-6 flex gap-3">
+                    <div className="mt-6 flex gap-3">
+                      {unlocked ? (
+                        <button
+                          onClick={() => router.push(`/units/${u.id}`)}
+                          className="flex-1 py-3 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 font-semibold hover:scale-[1.02] transition"
+                        >
+                          View PDF
+                        </button>
+                      ) : (
+                        <>
+                          <button
+                            onClick={() => handleUnitPayment(u)}
+                            className="flex-1 py-3 rounded-xl border border-red-500/40 text-red-400 font-semibold hover:bg-red-500/10"
+                          >
+                            Buy Unit – ₹{u.price}
+                          </button>
 
-  {unlocked ? (
-    <button
-      onClick={() => router.push(`/units/${u.id}`)}
-      className="flex-1 py-3 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 font-semibold hover:scale-[1.02] transition"
-    >
-      View PDF
-    </button>
-  ) : (
-    <>
-      <button
-        onClick={() => handleUnitPayment(u)}
-        className="flex-1 py-3 rounded-xl border border-red-500/40 text-red-400 font-semibold hover:bg-red-500/10"
-      >
-        Buy Unit – ₹{u.price}
-      </button>
-
-      {u.previewSlug && (
-        <a
-          href={`/blog/${u.previewSlug}`}
-          className="flex-1 text-center py-3 rounded-xl border border-white/15 text-gray-200 font-semibold hover:bg-white/5 transition"
-        >
-          Preview
-        </a>
-      )}
-    </>
-  )}
-
-</div>
-
+                          {u.previewSlug && (
+                            <a
+                              href={`/blog/${u.previewSlug}`}
+                              className="flex-1 text-center py-3 rounded-xl border border-white/15 text-gray-200 font-semibold hover:bg-white/5 transition"
+                            >
+                              Preview
+                            </a>
+                          )}
+                        </>
+                      )}
+                    </div>
                   </div>
                 );
               })}
@@ -386,11 +375,9 @@ export default function SubjectDetailPage() {
           {!subjectUnlocked && remainingAmount !== 0 && (
             <div className="lg:sticky lg:top-28">
               <div className="rounded-3xl bg-gradient-to-br from-purple-900/40 to-indigo-900/30 border border-purple-500/30 p-10 shadow-2xl">
-
                 <p className="text-sm text-gray-400 line-through">
-  ₹{subject.originalPrice ?? subject.salePrice ?? subject.price}
-</p>
-
+                  ₹{subject.originalPrice ?? subject.salePrice ?? subject.price}
+                </p>
 
                 <p className="text-5xl font-bold text-red-400 mt-2">
                   ₹{remainingAmount}
@@ -400,37 +387,34 @@ export default function SubjectDetailPage() {
                   Most students unlock full access
                 </div>
 
-<button
-  onClick={handleSubjectPayment}
-  disabled={!allUnitsUploaded || processing}
-  className={`mt-8 w-full py-4 rounded-xl font-bold text-lg shadow-xl transition
+                <button
+                  onClick={handleSubjectPayment}
+                  disabled={!allUnitsUploaded || processing}
+                  className={`mt-8 w-full py-4 rounded-xl font-bold text-lg shadow-xl transition
     ${
       allUnitsUploaded
         ? "bg-gradient-to-r from-red-500 to-pink-500 hover:scale-[1.03]"
         : "bg-gray-700 cursor-not-allowed opacity-60"
     }`}
->
-  {processing
-    ? "Processing..."
-    : allUnitsUploaded
-    ? "Unlock Full Subject"
-    : "Available when all units are uploaded"}
-</button>
+                >
+                  {processing
+                    ? "Processing..."
+                    : allUnitsUploaded
+                    ? "Unlock Full Subject"
+                    : "Available when all units are uploaded"}
+                </button>
 
-{!allUnitsUploaded && (
-  <p className="text-xs text-gray-400 mt-3 text-center">
-    Full subject access unlocks after all units are uploaded.
-  </p>
-)}
-
-
+                {!allUnitsUploaded && (
+                  <p className="text-xs text-gray-400 mt-3 text-center">
+                    Full subject access unlocks after all units are uploaded.
+                  </p>
+                )}
 
                 <ul className="mt-8 space-y-2 text-sm text-gray-400">
                   <li>✔ Lifetime access</li>
                   <li>✔ Verified exam content</li>
                   <li>✔ All units unlocked</li>
                 </ul>
-
               </div>
             </div>
           )}
@@ -439,3 +423,15 @@ export default function SubjectDetailPage() {
     </main>
   );
 }
+
+// 2. Main Page Wrapper with Suspense to prevent build error
+export default function SubjectDetailPage() {
+  return (
+    <Suspense fallback={<div className="p-10 text-white">Loading...</div>}>
+      <SubjectDetailContent />
+    </Suspense>
+  );
+}
+
+// 3. Force dynamic rendering
+export const dynamic = "force-dynamic";
