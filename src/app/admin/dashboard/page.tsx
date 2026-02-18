@@ -161,21 +161,22 @@ export default function AdminDashboard() {
         <div className="mb-12">
           <h2 className="text-xl font-semibold mb-4">Revenue Trend</h2>
 
-          <div className="h-64 bg-white/5 rounded-2xl p-4">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={stats.revenueTrend}>
-                <XAxis dataKey="date" stroke="#aaa" />
-                <YAxis stroke="#aaa" />
-                <Tooltip />
-                <Line
-                  type="monotone"
-                  dataKey="amount"
-                  stroke="#8b5cf6"
-                  strokeWidth={3}
-                />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
+<div className="bg-white/5 rounded-2xl p-4">
+  <ResponsiveContainer width="100%" height={300}>
+    <LineChart data={stats.revenueTrend}>
+      <XAxis dataKey="date" stroke="#aaa" />
+      <YAxis stroke="#aaa" />
+      <Tooltip />
+      <Line
+        type="monotone"
+        dataKey="amount"
+        stroke="#8b5cf6"
+        strokeWidth={3}
+      />
+    </LineChart>
+  </ResponsiveContainer>
+</div>
+g
         </div>
 
         {/* TOP SUBJECTS */}
