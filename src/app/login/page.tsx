@@ -1,7 +1,7 @@
 "use client";
 
 export const dynamic = "force-dynamic";
-
+export const revalidate = 0;
 
 import { useState } from "react";
 import {
@@ -11,15 +11,13 @@ import {
 } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 import { googleProvider } from "@/lib/googleAuth";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
 import toast from "react-hot-toast";
 
 export default function LoginPage() {
   const router = useRouter();
-  const params = useSearchParams();
-  const redirect = params.get("redirect") || "/";
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -34,7 +32,7 @@ export default function LoginPage() {
       setLoading(true);
       await signInWithEmailAndPassword(auth, email, password);
       toast.success("Welcome back 👋");
-      router.push(redirect);
+      router.push("/");
     } catch {
       toast.error("Invalid credentials");
     }
@@ -46,7 +44,7 @@ export default function LoginPage() {
       setLoading(true);
       await signInWithPopup(auth, googleProvider);
       toast.success("Signed in with Google");
-      router.push(redirect);
+      router.push("/");
     } catch {
       toast.error("Google sign-in failed");
     }
@@ -84,7 +82,7 @@ export default function LoginPage() {
           disabled={loading}
           className="w-full flex items-center justify-center gap-3 bg-white text-black py-3 rounded-xl font-medium hover:scale-[1.02] active:scale-[0.98] transition mb-6"
         >
-          <img src="/google.svg" className="w-5 h-5" />
+          <img src="/google.svg" className="w-5 h-5" alt="google" />
           Continue with Google
         </button>
 
