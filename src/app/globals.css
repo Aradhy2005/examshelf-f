@@ -1,0 +1,110 @@
+@import "tailwindcss";
+
+:root {
+  --background: #ffffff;
+  --foreground: #171717;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0a0a0a;
+    --foreground: #ededed;
+  }
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+section {
+  scroll-margin-top: 96px; /* height of navbar */
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+.input-admin {
+  @apply bg-[#020617] border border-white/10 rounded-xl px-4 py-3 
+  focus:outline-none focus:border-purple-500 transition;
+}
+
+/* BLOG TYPOGRAPHY */
+
+.blog-content {
+  font-size: 18px;
+  line-height: 1.8;
+  color: #cbd5e1;
+}
+
+.blog-content h2 {
+  font-size: 28px;
+  font-weight: 700;
+  margin-top: 2rem;
+  margin-bottom: 0.6rem;
+  color: white;
+}
+
+.blog-content h3 {
+  font-size: 22px;
+  font-weight: 600;
+  margin-top: 1.5rem;
+  margin-bottom: 0.5rem;
+  color: white;
+}
+
+.blog-content p {
+  margin-bottom: 1rem;
+}
+
+.blog-content ul,
+.blog-content ol {
+  margin-left: 1.2rem;
+  margin-bottom: 1rem;
+}
+
+.blog-content li {
+  margin-bottom: 0.4rem;
+}
+
+.blog-content strong {
+  color: white;
+}
+
+.blog-content hr {
+  border-color: rgba(255,255,255,0.1);
+  margin: 2rem 0;
+}
+
+.blog-content img {
+  border-radius: 12px;
+  margin: 1.5rem 0;
+}
+
+.label {
+  display: block;
+  font-size: 14px;
+  margin-bottom: 6px;
+  color: #cbd5e1;
+}
+
+.input {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.08);
+  outline: none;
+}
+
+.input:focus {
+  border-color: #8b5cf6;
+  background: rgba(255,255,255,0.08);
+}
+
+.file-input {
+  margin-top: 6px;
+}
+
