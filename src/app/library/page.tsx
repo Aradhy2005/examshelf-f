@@ -87,18 +87,37 @@ export default function LibraryPage() {
         if (last) setLastOpened(last);
       }
 
-      // ⭐ simple streak (local session based)
-      const today = new Date().toDateString();
-      const lastVisit = localStorage.getItem("lastVisit");
+      // ⭐ SMART DAILY STREAK LOGIC
+const today = new Date();
+const todayStr = today.toDateString();
 
-      if (lastVisit !== today) {
-        const newStreak = Number(localStorage.getItem("streak") || 0) + 1;
-        localStorage.setItem("streak", String(newStreak));
-        localStorage.setItem("lastVisit", today);
-        setStreak(newStreak);
-      } else {
-        setStreak(Number(localStorage.getItem("streak") || 1));
-      }
+const lastStudyDate = localStorage.getItem("lastStudyDate");
+let currentStreak = Number(localStorage.getItem("streak") || 0);
+
+if (!lastStudyDate) {
+  // first study day ever
+  currentStreak = 1;
+} else {
+  const lastDate = new Date(lastStudyDate);
+
+  const diffDays = Math.floor(
+    (today.getTime() - lastDate.getTime()) / (1000 * 60 * 60 * 24)
+  );
+
+  if (diffDays === 0) {
+    // already studied today → no change
+  } else if (diffDays === 1) {
+    // studied yesterday → continue streak
+    currentStreak += 1;
+  } else {
+    // missed days → reset streak
+    currentStreak = 1;
+  }
+}
+
+localStorage.setItem("streak", String(currentStreak));
+localStorage.setItem("lastStudyDate", todayStr);
+setStreak(currentStreak);
 
       setSubjectsMap(subjectMap);
       setUnitsBySubject(grouped);

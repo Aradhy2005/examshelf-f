@@ -1,5 +1,7 @@
 "use client";
 
+import { useEffect } from "react";
+import { getDocs } from "firebase/firestore";
 import { useState } from "react";
 import { db, storage } from "@/lib/firebase";
 import { collection, doc, setDoc, serverTimestamp } from "firebase/firestore";
@@ -12,10 +14,22 @@ export default function AdminBlogsPage() {
   const [content, setContent] = useState("");
   const [subjectId, setSubjectId] = useState("");
   const [unitId, setUnitId] = useState("");
+  const [youtubeUrl, setYoutubeUrl] = useState("");
   const [coverFile, setCoverFile] = useState<File | null>(null);
   const [previewFiles, setPreviewFiles] = useState<File[]>([]);
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState("");
+  const [blogs, setBlogs] = useState<any[]>([]);
+
+  useEffect(() => {
+  const loadBlogs = async () => {
+    const snap = await getDocs(collection(db, "blogs"));
+    const data = snap.docs.map(doc => doc.data());
+    setBlogs(data);
+  };
+
+  loadBlogs();
+}, []);
 
   const uploadImage = async (file: File, path: string) => {
     const storageRef = ref(storage, path);
@@ -65,6 +79,7 @@ export default function AdminBlogsPage() {
         previewImages: previewUrls,
         subjectId,
         unitId,
+        youtubeUrl, // ✅ NEW
         published: true,
         createdAt: serverTimestamp(),
       });
@@ -78,6 +93,7 @@ export default function AdminBlogsPage() {
       setUnitId("");
       setCoverFile(null);
       setPreviewFiles([]);
+      setYoutubeUrl("");
 
     } catch (error) {
       console.error(error);
@@ -125,6 +141,15 @@ export default function AdminBlogsPage() {
           className="input"
           placeholder="Short description shown in blog preview"
         />
+
+        {/* YOUTUBE VIDEO */}
+        <label className="label mt-4">YouTube Video Link (optional)</label>
+<input
+  value={youtubeUrl}
+  onChange={(e) => setYoutubeUrl(e.target.value)}
+  className="input"
+  placeholder="https://www.youtube.com/watch?v=VIDEO_ID"
+/>
 
         {/* SUBJECT */}
         <div className="grid grid-cols-2 gap-4 mt-4">
@@ -205,6 +230,52 @@ Unlock full unit on ExamShelf.
         )}
 
       </div>
+
+      {/* ================= MANAGE BLOGS ================= */}
+<div className="max-w-3xl mx-auto mt-12 bg-white/5 backdrop-blur-xl p-6 rounded-2xl border border-white/10">
+  <h2 className="text-xl font-semibold mb-4">Manage Blogs</h2>
+
+  {blogs.length === 0 && (
+    <p className="text-gray-400 text-sm">No blogs yet.</p>
+  )}
+
+  <div className="space-y-3">
+    {blogs.map((b) => (
+      <div
+        key={b.slug}
+        className="flex justify-between items-center bg-white/5 px-4 py-3 rounded-lg"
+      >
+        <span className="text-sm">{b.title}</span>
+
+        <div className="flex gap-3">
+          {/* EDIT */}
+          <a
+            href={`/admin/edit-blog/${b.slug}`}
+            className="text-sm px-3 py-1 bg-indigo-600 rounded hover:bg-indigo-500"
+          >
+            Edit
+          </a>
+
+          {/* DELETE */}
+          <button
+            onClick={async () => {
+              if (confirm("Delete this blog?")) {
+                await fetch(`/api/delete-blog?slug=${b.slug}`, {
+                  method: "DELETE",
+                });
+                location.reload();
+              }
+            }}
+            className="text-sm px-3 py-1 bg-red-600 rounded hover:bg-red-500"
+          >
+            Delete
+          </button>
+        </div>
+      </div>
+    ))}
+  </div>
+</div>
+
     </main>
   );
 }
