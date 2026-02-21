@@ -11,6 +11,10 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Invalid request" }, { status: 400 });
     }
 
+    if (!["unit", "subject"].includes(type)) {
+      return NextResponse.json({ error: "Invalid type" }, { status: 400 });
+    }
+
     // 🔹 Fetch user
     const userSnap = await adminDb.collection("users").doc(userId).get();
     if (!userSnap.exists) {
@@ -23,15 +27,12 @@ export async function POST(req: Request) {
 
     let finalAmount = 0;
 
-    // ============================
-    // SUBJECT PURCHASE
-    // ============================
+    // ================= SUBJECT PURCHASE =================
     if (type === "subject") {
       if (!subjectId) {
         return NextResponse.json({ error: "Subject ID missing" }, { status: 400 });
       }
 
-      // Already unlocked
       if (unlockedSubjects.includes(subjectId)) {
         return NextResponse.json({ error: "Subject already purchased" }, { status: 400 });
       }
@@ -41,10 +42,8 @@ export async function POST(req: Request) {
         return NextResponse.json({ error: "Subject not found" }, { status: 404 });
       }
 
-      const subject = subjectSnap.data();
-      const subjectPrice = subject?.price || 0;
+      const subjectPrice = subjectSnap.data()?.price || 0;
 
-      // Calculate upgrade price
       const unitsSnap = await adminDb
         .collection("units")
         .where("subjectId", "==", subjectId)
@@ -53,9 +52,8 @@ export async function POST(req: Request) {
       let purchasedUnitTotal = 0;
 
       unitsSnap.forEach((doc) => {
-        const unit = doc.data();
         if (unlockedUnits.includes(doc.id)) {
-          purchasedUnitTotal += unit.price || 0;
+          purchasedUnitTotal += doc.data().price || 0;
         }
       });
 
@@ -66,9 +64,7 @@ export async function POST(req: Request) {
       }
     }
 
-    // ============================
-    // UNIT PURCHASE
-    // ============================
+    // ================= UNIT PURCHASE =================
     if (type === "unit") {
       if (!unitId) {
         return NextResponse.json({ error: "Unit ID missing" }, { status: 400 });
@@ -98,7 +94,13 @@ export async function POST(req: Request) {
     const order = await razorpay.orders.create({
       amount: finalAmount * 100,
       currency: "INR",
-      receipt: "receipt_" + Date.now(),
+      receipt: `user_${userId}_${Date.now()}`,
+      notes: {
+        userId,
+        type,
+        subjectId: subjectId || "",
+        unitId: unitId || "",
+      },
     });
 
     return NextResponse.json(order);

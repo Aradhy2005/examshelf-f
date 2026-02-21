@@ -72,6 +72,8 @@ export default function UnitViewerPage() {
         setIsAuthorized(true);
       } catch (err) {
         console.error("Shield Error:", err);
+        alert("Access denied. Please purchase the unit.");
+        router.replace("/");
       }
     };
     init();

@@ -1,9 +1,9 @@
-import { initializeApp } from "firebase/app";
+import { initializeApp, getApps, getApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
 
-
+// 🔐 Firebase config
 const firebaseConfig = {
   apiKey: "AIzaSyDnL-ZG4gatf6qZeVswhPRSKBcCKvKWHkk",
   authDomain: "examshelf-71b78.firebaseapp.com",
@@ -13,7 +13,9 @@ const firebaseConfig = {
   appId: "1:463432074374:web:8ccbae476047273401fd07",
 };
 
-const app = initializeApp(firebaseConfig);
+
+// ✅ Prevent multiple app instances (important for Next.js)
+const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 
 // 🔐 Authentication
 export const auth = getAuth(app);
@@ -21,6 +23,7 @@ export const auth = getAuth(app);
 // 🗄️ Firestore Database
 export const db = getFirestore(app);
 
-//Firebase Storage
+// ☁️ Firebase Storage
 export const storage = getStorage(app);
+
 

@@ -6,7 +6,7 @@ import { adminDb, adminFieldValue } from "@/lib/firebaseAdmin";
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    
+
     const {
       razorpay_order_id,
       razorpay_payment_id,
@@ -18,16 +18,54 @@ export async function POST(req: Request) {
     } = body;
 
     // =========================
+    // 🔒 BASIC VALIDATION
+    // =========================
+    if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature || !userId || !type) {
+      return NextResponse.json({ success: false });
+    }
+
+    if (!["unit", "subject"].includes(type)) {
+      return NextResponse.json({ success: false });
+    }
+
+    if (type === "unit" && !unitId) return NextResponse.json({ success: false });
+    if (type === "subject" && !subjectId) return NextResponse.json({ success: false });
+
+    // =========================
     // 🔐 VERIFY SIGNATURE
     // =========================
     const generated_signature = crypto
       .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET!)
-      .update(razorpay_order_id + "|" + razorpay_payment_id)
+      .update(`${razorpay_order_id}|${razorpay_payment_id}`)
       .digest("hex");
 
     if (generated_signature !== razorpay_signature) {
       return NextResponse.json({ success: false });
     }
+
+    // =========================
+    // 🔎 PREVENT DUPLICATE PROCESSING
+    // =========================
+    const paymentRef = adminDb.collection("payments").doc(razorpay_payment_id);
+    const paymentSnap = await paymentRef.get();
+
+    if (paymentSnap.exists) {
+      // already processed → prevent replay attack
+      return NextResponse.json({ success: true });
+    }
+
+    // =========================
+    // 🔎 VERIFY USER EXISTS
+    // =========================
+    const userRef = adminDb.collection("users").doc(userId);
+    const userSnap = await userRef.get();
+
+    if (!userSnap.exists) {
+      return NextResponse.json({ success: false });
+    }
+
+    const userData = userSnap.data() || {};
+    const unlockedUnits = userData.unlockedUnits || [];
 
     // =========================
     // 🔎 FETCH ORDER FROM RAZORPAY
@@ -46,16 +84,17 @@ export async function POST(req: Request) {
     // 🔥 UNIT VALIDATION
     // =========================
     if (type === "unit") {
-      const unitSnap = await adminDb
-        .collection("units")
-        .doc(unitId)
-        .get();
+      const unitSnap = await adminDb.collection("units").doc(unitId).get();
 
-      if (!unitSnap.exists) {
+      if (!unitSnap.exists) return NextResponse.json({ success: false });
+
+      const unitData = unitSnap.data();
+
+      // prevent repurchase
+      if (unlockedUnits.includes(unitId)) {
         return NextResponse.json({ success: false });
       }
 
-      const unitData = unitSnap.data();
       expectedAmount = unitData?.price || 0;
     }
 
@@ -63,14 +102,9 @@ export async function POST(req: Request) {
     // 🔥 SUBJECT VALIDATION
     // =========================
     if (type === "subject") {
-      const subjectSnap = await adminDb
-        .collection("subjects")
-        .doc(subjectId)
-        .get();
+      const subjectSnap = await adminDb.collection("subjects").doc(subjectId).get();
 
-      if (!subjectSnap.exists) {
-        return NextResponse.json({ success: false });
-      }
+      if (!subjectSnap.exists) return NextResponse.json({ success: false });
 
       const subjectPrice = subjectSnap.data()?.price || 0;
 
@@ -79,19 +113,12 @@ export async function POST(req: Request) {
         .where("subjectId", "==", subjectId)
         .get();
 
-      const allUnits = unitsSnap.docs.map((d) => ({
+      const allUnits = unitsSnap.docs.map(d => ({
         id: d.id,
         ...d.data(),
       }));
 
-      const userSnap = await adminDb
-        .collection("users")
-        .doc(userId)
-        .get();
-
-      const unlockedUnits = userSnap.data()?.unlockedUnits || [];
-
-      const purchasedUnits = allUnits.filter((u: any) =>
+      const purchasedUnits = allUnits.filter(u =>
         unlockedUnits.includes(u.id)
       );
 
@@ -106,32 +133,25 @@ export async function POST(req: Request) {
     // =========================
     // 🔴 SECURITY CHECK
     // =========================
-    if (paidAmount !== expectedAmount) {
+    if (expectedAmount <= 0 || paidAmount !== expectedAmount) {
       return NextResponse.json({ success: false });
     }
 
     // =========================
     // 💾 SAVE PAYMENT RECORD
     // =========================
-    await adminDb
-      .collection("payments")
-      .doc(razorpay_payment_id)
-      .set({
-        userId,
-        type,
-        subjectId: subjectId || null,
-        unitId: unitId || null,
-        amount: expectedAmount,
-        createdAt: new Date(),
-      });
+    await paymentRef.set({
+      userId,
+      type,
+      subjectId: subjectId || null,
+      unitId: unitId || null,
+      amount: expectedAmount,
+      createdAt: adminFieldValue.serverTimestamp(),
+    });
 
     // =========================
-    // 🔓 UNLOCK CONTENT (FIXED)
+    // 🔓 UNLOCK CONTENT
     // =========================
-    const userRef = adminDb.collection("users").doc(userId);
-
-    console.log("Unlocking:", type, unitId, subjectId);
-
     if (type === "unit") {
       await userRef.set(
         {
@@ -158,6 +178,7 @@ export async function POST(req: Request) {
 
   } catch (error) {
     console.error("Verification error:", error);
+
     return NextResponse.json(
       { success: false },
       { status: 500 }

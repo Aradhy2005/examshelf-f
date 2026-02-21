@@ -124,131 +124,176 @@ function SubjectDetailContent() {
     setRemainingAmount(Math.max(subject.price - purchasedAmount, 0));
   }, [units, unlockedUnits, subject]);
 
-  /* SUBJECT PAYMENT */
   const handleSubjectPayment = async () => {
-    if (!user || !subject || remainingAmount === null) return;
+  if (!user) {
+    router.push(`/login?redirect=/subjects/${id}`);
+    return;
+  }
 
-    try {
-      setProcessing(true);
+  if (!subject || remainingAmount === null || processing) return;
 
-      const res = await fetch("/api/create-order", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId: user.uid, type: "subject", subjectId: id }),
-      });
+  try {
+    setProcessing(true);
 
-      const order = await res.json();
-      if (!order.id) return;
+    const res = await fetch("/api/create-order", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        userId: user.uid,
+        type: "subject",
+        subjectId: id,
+      }),
+    });
 
-      const rzp = new (window as any).Razorpay({
-        key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
-        amount: order.amount,
-        currency: order.currency,
-        name: "ExamShelf",
-        description: subject.name,
-        order_id: order.id,
-        handler: async (response: any) => {
+    const order = await res.json();
+
+    if (!order?.id) {
+      alert("Unable to start payment. Try again.");
+      setProcessing(false);
+      return;
+    }
+
+    if (!(window as any).Razorpay) {
+      alert("Payment service failed to load. Please refresh.");
+      setProcessing(false);
+      return;
+    }
+
+    const Razorpay = (window as any).Razorpay;
+
+    const rzp = new Razorpay({
+      key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
+      amount: order.amount,
+      currency: order.currency,
+      name: "ExamShelf",
+      description: subject.name,
+      order_id: order.id,
+
+      handler: async (response: any) => {
+        const verifyRes = await fetch("/api/verify-payment", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            ...response,
+            userId: user.uid,
+            type: "subject",
+            subjectId: id,
+          }),
+        });
+
+        const verifyData = await verifyRes.json();
+
+        if (verifyData.success) {
+          setSubjectUnlocked(true);
+          setUnlockedUnits(units.map((u) => u.id));
+          setPaymentSuccess(true);
+        }
+
+        setProcessing(false);
+      },
+
+      theme: { color: "#7c3aed" },
+    });
+
+    rzp.on("payment.failed", () => {
+      alert("Payment failed. Please try again.");
+      setProcessing(false);
+    });
+
+    rzp.open();
+  } catch (err) {
+    console.error(err);
+    setProcessing(false);
+  }
+};
+
+const handleUnitPayment = async (unit: Unit) => {
+  if (!user) {
+    router.push(`/login?redirect=/subjects/${id}`);
+    return;
+  }
+
+  if (processing) return;
+
+  try {
+    setProcessing(true);
+
+    const res = await fetch("/api/create-order", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        userId: user.uid,
+        type: "unit",
+        subjectId: id,
+        unitId: unit.id,
+      }),
+    });
+
+    const order = await res.json();
+
+    if (!order?.id) {
+      alert("Unable to start payment.");
+      setProcessing(false);
+      return;
+    }
+
+    if (!(window as any).Razorpay) {
+      alert("Payment service failed to load.");
+      setProcessing(false);
+      return;
+    }
+
+    const Razorpay = (window as any).Razorpay;
+
+    const rzp = new Razorpay({
+      key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
+      amount: order.amount,
+      currency: order.currency,
+      name: "ExamShelf",
+      description: unit.title,
+      order_id: order.id,
+
+      handler: async (response: any) => {
+        try {
           const verifyRes = await fetch("/api/verify-payment", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               ...response,
               userId: user.uid,
-              type: "subject",
+              type: "unit",
               subjectId: id,
+              unitId: unit.id,
             }),
           });
 
           const verifyData = await verifyRes.json();
 
           if (verifyData.success) {
-            setSubjectUnlocked(true);
-            setUnlockedUnits(units.map((u) => u.id));
+            setUnlockedUnits((prev) => [...prev, unit.id]);
             setPaymentSuccess(true);
           }
+        } catch (err) {
+          console.error("Verification failed:", err);
+        }
 
-          setProcessing(false);
-        },
-        theme: { color: "#7c3aed" },
-      });
-
-      rzp.open();
-    } catch {
-      setProcessing(false);
-    }
-  };
-
-  /* UNIT PAYMENT */
-  const handleUnitPayment = async (unit: Unit) => {
-    if (!user) {
-      router.push(`/login?redirect=/subjects/${id}`);
-      return;
-    }
-
-    try {
-      setProcessing(true);
-
-      const res = await fetch("/api/create-order", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          userId: user.uid,
-          type: "unit",
-          subjectId: id,
-          unitId: unit.id,
-        }),
-      });
-
-      const order = await res.json();
-      if (!order.id) {
         setProcessing(false);
-        return;
-      }
+      },
 
-      const rzp = new (window as any).Razorpay({
-        key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
-        amount: order.amount,
-        currency: order.currency,
-        name: "ExamShelf",
-        description: unit.title,
-        order_id: order.id,
+      theme: { color: "#7c3aed" },
+    });
 
-        handler: async (response: any) => {
-          try {
-            const verifyRes = await fetch("/api/verify-payment", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                ...response,
-                userId: user.uid,
-                type: "unit",
-                subjectId: id,
-                unitId: unit.id,
-              }),
-            });
-
-            const verifyData = await verifyRes.json();
-
-            if (verifyData.success) {
-              setUnlockedUnits((prev) => [...prev, unit.id]);
-              setPaymentSuccess(true);
-            }
-          } catch (err) {
-            console.error("Verification failed:", err);
-          }
-
-          setProcessing(false);
-        },
-
-        theme: { color: "#7c3aed" },
-      });
-
-      rzp.open();
-    } catch (err) {
-      console.error(err);
+    rzp.on("payment.failed", () => {
+      alert("Payment failed. Please try again.");
       setProcessing(false);
-    }
-  };
+    });
+
+    rzp.open();
+  } catch (err) {
+    console.error(err);
+    setProcessing(false);
+  }
+};
 
   if (!subject || loading) {
     return <p className="p-10 text-white">Loading...</p>;

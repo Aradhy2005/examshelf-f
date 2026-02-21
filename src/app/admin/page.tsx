@@ -23,14 +23,11 @@ export default function AdminPage() {
       return;
     }
 
-    // ✅ Admin confirmed → go to dashboard
+    // ✅ Admin confirmed → redirect once
     router.replace("/admin/dashboard");
 
   }, [user, role, loading, router]);
 
-  return (
-    <div className="min-h-screen flex items-center justify-center bg-black text-white">
-      <p className="text-gray-400">Loading admin dashboard…</p>
-    </div>
-  );
+  // prevent UI flash during redirect
+  return null;
 }

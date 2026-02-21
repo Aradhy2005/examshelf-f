@@ -1,0 +1,24 @@
+User-agent: *
+
+# ✅ Allow important pages
+Allow: /
+Allow: /blog/
+Allow: /subjects/
+Allow: /units/
+
+# 🚫 Block private & system routes
+Disallow: /admin/
+Disallow: /api/
+Disallow: /login
+Disallow: /signup
+Disallow: /library
+Disallow: /checkout
+Disallow: /verify-payment
+
+# 🚫 Block duplicate & technical paths
+Disallow: /_next/
+Disallow: /static/
+Disallow: /*?*
+
+# ✅ Sitemap location
+Sitemap: https://examshelf.in/sitemap.xml

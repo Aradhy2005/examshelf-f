@@ -10,7 +10,10 @@ import { Toaster } from "react-hot-toast";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata = {
-  title: "ExamShelf – University Notes, PYQs & Exam Preparation",
+  title: {
+  default: "ExamShelf – University Notes, PYQs & Exam Preparation",
+  template: "%s | ExamShelf",
+},
   description:
     "Access structured university notes, solved PYQs, important questions, and exam-focused study material for college students. Prepare smarter with ExamShelf.",
   icons: {
