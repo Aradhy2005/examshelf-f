@@ -4,7 +4,8 @@ const PROJECT_ID = "examshelf-71b78";
 
 async function getBlogs() {
   const res = await fetch(
-    `https://firestore.googleapis.com/v1/projects/${PROJECT_ID}/databases/(default)/documents/blogs`
+    `https://firestore.googleapis.com/v1/projects/${PROJECT_ID}/databases/(default)/documents/blogs`,
+    { next: { revalidate: 3600 } } // cache 1 hour
   );
 
   if (!res.ok) return [];
@@ -12,7 +13,16 @@ async function getBlogs() {
   const data = await res.json();
   if (!data.documents) return [];
 
-  return data.documents.map((doc: any) => doc.name.split("/").pop());
+  return data.documents
+    .map((doc: any) => {
+      const fields = doc.fields;
+
+      const slug = doc.name.split("/").pop();
+      const published = fields?.published?.booleanValue;
+
+      return published ? slug : null;
+    })
+    .filter(Boolean);
 }
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
@@ -46,7 +56,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       changeFrequency: "daily",
       priority: 0.9,
     },
-
     ...blogUrls,
   ];
 }

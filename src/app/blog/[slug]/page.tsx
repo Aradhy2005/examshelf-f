@@ -1,8 +1,35 @@
 import ReactMarkdown from "react-markdown";
+import Image from "next/image";
+import Link from "next/link";
 
 const PROJECT_ID = "examshelf-71b78";
 
-// 🔹 Fetch blog using Firestore REST API
+/* ============================= */
+/* 🔹 FIRESTORE PARSER (IMPORTANT) */
+/* ============================= */
+const parseValue = (value: any): any => {
+  if (value.stringValue) return value.stringValue;
+  if (value.integerValue) return Number(value.integerValue);
+  if (value.doubleValue) return value.doubleValue;
+  if (value.booleanValue !== undefined) return value.booleanValue;
+  if (value.timestampValue) return value.timestampValue;
+
+  if (value.arrayValue?.values) {
+    return value.arrayValue.values.map(parseValue);
+  }
+
+  if (value.mapValue?.fields) {
+    return Object.fromEntries(
+      Object.entries(value.mapValue.fields).map(([k, v]) => [k, parseValue(v)])
+    );
+  }
+
+  return null;
+};
+
+/* ============================= */
+/* 🔹 FETCH BLOG */
+/* ============================= */
 async function getBlog(slug: string) {
   const res = await fetch(
     `https://firestore.googleapis.com/v1/projects/${PROJECT_ID}/databases/(default)/documents/blogs/${slug}`,
@@ -17,16 +44,18 @@ async function getBlog(slug: string) {
   const blog = Object.fromEntries(
     Object.entries(data.fields).map(([key, value]: any) => [
       key,
-      Object.values(value)[0],
+      parseValue(value),
     ])
   );
 
   return blog;
 }
 
-// 🔹 SEO Metadata
+/* ============================= */
+/* 🔹 SEO METADATA */
+/* ============================= */
 export async function generateMetadata({ params }: any) {
-  const { slug } = await params;   // ✅ FIX
+  const { slug } = await params;
 
   const blog = await getBlog(slug);
   if (!blog) return {};
@@ -47,14 +76,16 @@ export async function generateMetadata({ params }: any) {
       images: blog.coverImage ? [blog.coverImage] : [],
     },
     alternates: {
-      canonical: `https://examshelf.com/blog/${slug}`,
+      canonical: `https://www.examshelf.in/blog/${slug}`,
     },
   };
 }
 
-// 🔹 Blog Page
+/* ============================= */
+/* 🔹 BLOG PAGE */
+/* ============================= */
 export default async function BlogPage({ params }: any) {
-  const { slug } = await params;   // ✅ FIX
+  const { slug } = await params;
 
   const blog = await getBlog(slug);
 
@@ -80,16 +111,26 @@ export default async function BlogPage({ params }: any) {
   return (
     <main className="min-h-screen px-6 py-24 text-white max-w-3xl mx-auto">
 
+      {/* Cover Image */}
       {blog.coverImage && (
-        <img src={blog.coverImage} className="rounded-2xl mb-8" />
+        <Image
+          src={blog.coverImage}
+          alt={blog.title}
+          width={1200}
+          height={630}
+          className="rounded-2xl mb-8"
+        />
       )}
 
-      <h1 className="text-4xl md:text-5xl font-bold">
+      {/* Title */}
+      <h1 className="text-4xl md:text-5xl font-bold leading-tight">
         {blog.title}
       </h1>
 
+      {/* Excerpt */}
       <p className="text-gray-400 mt-4">{blog.excerpt}</p>
 
+      {/* Video */}
       {blog.youtubeUrl && (
         <div className="mt-8 aspect-video">
           <iframe
@@ -102,9 +143,38 @@ export default async function BlogPage({ params }: any) {
 
       <hr className="border-white/10 my-8" />
 
-      <article className="blog-content prose prose-invert">
+      {/* Markdown Content */}
+      <article className="blog-content prose prose-invert max-w-none">
         <ReactMarkdown>{blog.content}</ReactMarkdown>
       </article>
+
+      {/* ✅ PREVIEW IMAGES */}
+      {blog.previewImages?.length > 0 && (
+        <div className="mt-12 space-y-4">
+          <h2 className="text-2xl font-semibold">Preview Notes</h2>
+          {blog.previewImages.map((img: string, i: number) => (
+            <Image
+              key={i}
+              src={img}
+              alt="Preview"
+              width={900}
+              height={600}
+              className="rounded-xl"
+            />
+          ))}
+        </div>
+      )}
+
+      {/* ✅ DOWNLOAD BUTTON AUTO */}
+      {blog.unitId && blog.subjectId && (
+  <a
+    href={`/subjects/${blog.subjectId}`}
+    className="block mt-14 text-center bg-gradient-to-r from-purple-600 to-indigo-600 py-4 rounded-xl text-lg font-semibold hover:opacity-90 transition shadow-lg"
+  >
+    📥 Download Full Notes PDF
+  </a>
+)}
+
     </main>
   );
 }
