@@ -1,11 +1,12 @@
 [
   {
-    "origin": ["http://localhost:3000"],
-    "method": ["GET", "HEAD", "PUT"],
-    "responseHeader": [
-      "Content-Type",
-      "Authorization"
+    "origin": [
+      "http://localhost:3000",
+      "https://www.examshelf.in",
+      "https://examshelf.in"
     ],
+    "method": ["GET", "HEAD"],
+    "responseHeader": ["Content-Type"],
     "maxAgeSeconds": 3600
   }
 ]
