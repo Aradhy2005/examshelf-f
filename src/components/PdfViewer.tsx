@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { Document, Page, pdfjs } from "react-pdf";
+import { useInView } from "react-intersection-observer";
 
 // Corrected CSS paths for Next.js 16
 import "react-pdf/dist/Page/AnnotationLayer.css";
@@ -14,11 +15,14 @@ interface Props {
   userIdentifier: string;
 }
 
+
+
 export default function PdfViewer({ fileUrl, userIdentifier }: Props) {
   const [numPages, setNumPages] = useState<number>(0);
-  const [scale, setScale] = useState(1.1);
+  const [scale, setScale] = useState(1);
   const [containerWidth, setContainerWidth] = useState<number>(800);
-
+  const [loaded, setLoaded] = useState(false);
+  
   // Responsive container detection
   useEffect(() => {
     const updateWidth = () => {
@@ -29,6 +33,18 @@ export default function PdfViewer({ fileUrl, userIdentifier }: Props) {
     window.addEventListener("resize", updateWidth);
     return () => window.removeEventListener("resize", updateWidth);
   }, []);
+
+  useEffect(() => {
+  if (loaded) {
+    const viewport = document.getElementById("pdf-viewport");
+    if (viewport) {
+      viewport.scrollTo({
+        top: 0,
+        behavior: "auto" // safe & supported
+      });
+    }
+  }
+}, [loaded]);
 
   return (
     <div id="pdf-viewport" className="w-full flex flex-col items-center bg-[#02040a] min-h-screen pb-24">
@@ -57,7 +73,10 @@ export default function PdfViewer({ fileUrl, userIdentifier }: Props) {
 
       <Document
         file={fileUrl}
-        onLoadSuccess={({ numPages }) => setNumPages(numPages)}
+       onLoadSuccess={({ numPages }) => {
+  setNumPages(numPages);
+  setLoaded(true);
+}}
         loading={
           <div className="flex flex-col items-center mt-32">
             <div className="w-12 h-12 border-[3px] border-purple-500/10 border-t-purple-500 rounded-full animate-spin mb-6" />

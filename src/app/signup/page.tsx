@@ -17,21 +17,39 @@ function SignupContent() {
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [showPass, setShowPass] = useState(false);
+  const [showConfirmPass, setShowConfirmPass] = useState(false);
   const [loading, setLoading] = useState(false);
 
   const handleSignup = async (e: React.FormEvent) => {
-    e.preventDefault();
-    try {
-      setLoading(true);
-      await createUserWithEmailAndPassword(auth, email, password);
-      toast.success("Account created successfully 🎉");
-      router.push("/");
-    } catch (err: any) {
-      toast.error(err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
+  e.preventDefault();
+
+  if (password !== confirmPassword) {
+    toast.error("Passwords do not match");
+    return;
+  }
+
+  if (password.length < 6) {
+    toast.error("Password must be at least 6 characters");
+    return;
+  }
+
+  try {
+    setLoading(true);
+    await createUserWithEmailAndPassword(auth, email, password);
+    toast.success("Account created successfully 🎉");
+    router.push("/");
+  } catch (err: any) {
+    if (err.code === "auth/email-already-in-use")
+  toast.error("Email already registered");
+else if (err.code === "auth/weak-password")
+  toast.error("Weak password");
+else toast.error("Signup failed");
+  } finally {
+    setLoading(false);
+  }
+};
 
   const handleGoogleSignup = async () => {
     try {
@@ -71,7 +89,7 @@ function SignupContent() {
 
         <button
           onClick={handleGoogleSignup}
-          disabled={loading}
+         disabled={loading || !email || !password || !confirmPassword}
           className="w-full flex items-center justify-center gap-3 py-4 rounded-2xl bg-white text-black font-bold text-sm uppercase tracking-widest hover:bg-gray-200 transition active:scale-95 shadow-xl"
         >
           <img src="/google.svg" alt="google" className="w-5 h-5" />
@@ -94,19 +112,47 @@ function SignupContent() {
             className="w-full px-5 py-4 rounded-2xl bg-white/5 border border-white/10 focus:border-purple-500/50 focus:ring-4 focus:ring-purple-500/10 outline-none transition-all text-sm"
           />
 
-          <input
-            type="password"
-            placeholder="Secure Password"
-            required
-            autoComplete="new-password"
-            onChange={(e) => setPassword(e.target.value)}
-            className="w-full px-5 py-4 rounded-2xl bg-white/5 border border-white/10 focus:border-purple-500/50 focus:ring-4 focus:ring-purple-500/10 outline-none transition-all text-sm"
-          />
+          <div className="relative">
+  <input
+    type={showPass ? "text" : "password"}
+    placeholder="Secure Password"
+    required
+    autoComplete="new-password"
+    onChange={(e) => setPassword(e.target.value)}
+    className="w-full px-5 py-4 rounded-2xl bg-white/5 border border-white/10 focus:border-purple-500/50 focus:ring-4 focus:ring-purple-500/10 outline-none transition-all text-sm"
+  />
+
+  <button
+    type="button"
+    onClick={() => setShowPass(!showPass)}
+    className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white"
+  >
+    {showPass ? "🙈" : "👁"}
+  </button>
+</div>
+
+<div className="relative">
+  <input
+    type={showConfirmPass ? "text" : "password"}
+    placeholder="Confirm Password"
+    required
+    onChange={(e) => setConfirmPassword(e.target.value)}
+    className="w-full px-5 py-4 rounded-2xl bg-white/5 border border-white/10 focus:border-purple-500/50 focus:ring-4 focus:ring-purple-500/10 outline-none transition-all text-sm"
+  />
+
+  <button
+    type="button"
+    onClick={() => setShowConfirmPass(!showConfirmPass)}
+    className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white"
+  >
+    {showConfirmPass ? "🙈" : "👁"}
+  </button>
+</div>
 
           <motion.button
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
-            disabled={loading}
+            disabled={loading || !email || !password || !confirmPassword}
             className="w-full py-4 mt-4 rounded-2xl bg-gradient-to-r from-purple-600 to-indigo-600 font-black text-white text-xs uppercase tracking-widest shadow-2xl shadow-purple-600/20 hover:shadow-purple-600/40 transition-all"
           >
             {loading ? "Authenticating..." : "Establish Account →"}

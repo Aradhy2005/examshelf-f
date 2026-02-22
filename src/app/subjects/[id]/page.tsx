@@ -124,6 +124,27 @@ function SubjectDetailContent() {
     setRemainingAmount(Math.max(subject.price - purchasedAmount, 0));
   }, [units, unlockedUnits, subject]);
 
+
+ // 🔥 Resume purchase after login (SAFE VERSION)
+useEffect(() => {
+  if (!user || units.length === 0) return;
+
+  const params = new URLSearchParams(window.location.search);
+  const buy = params.get("buy");
+
+  if (!buy) return;
+
+  // ✅ remove query param to prevent repeat popup on refresh
+  window.history.replaceState({}, "", `/subjects/${id}`);
+
+  if (buy === "subject") {
+    handleSubjectPayment();
+  } else {
+    const unitToBuy = units.find(u => u.id === buy);
+    if (unitToBuy) handleUnitPayment(unitToBuy);
+  }
+}, [user, units]);
+
   const handleSubjectPayment = async () => {
   if (!user) {
     router.push(`/login?redirect=/subjects/${id}`);
@@ -213,7 +234,7 @@ const handleUnitPayment = async (unit: Unit) => {
     return;
   }
 
-  if (processing) return;
+  if (processing || loading) return;
 
   try {
     setProcessing(true);
@@ -393,7 +414,13 @@ const handleUnitPayment = async (unit: Unit) => {
                       ) : (
                         <>
                           <button
-                            onClick={() => handleUnitPayment(u)}
+                            onClick={() => {
+  if (!user) {
+    router.push(`/login?redirect=/subjects/${id}&buy=${u.id}`);
+    return;
+  }
+  handleUnitPayment(u);
+}}
                             className="flex-1 py-3 rounded-xl border border-red-500/40 text-red-400 font-semibold hover:bg-red-500/10"
                           >
                             Buy Unit – ₹{u.price}
@@ -433,7 +460,13 @@ const handleUnitPayment = async (unit: Unit) => {
                 </div>
 
                 <button
-                  onClick={handleSubjectPayment}
+                  onClick={() => {
+  if (!user) {
+    router.push(`/login?redirect=/subjects/${id}&buy=subject`);
+    return;
+  }
+  handleSubjectPayment();
+}}
                   disabled={!allUnitsUploaded || processing}
                   className={`mt-8 w-full py-4 rounded-xl font-bold text-lg shadow-xl transition
     ${

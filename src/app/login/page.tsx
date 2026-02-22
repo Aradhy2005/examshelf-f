@@ -28,7 +28,10 @@ function LoginContent() {
       setLoading(true);
       await signInWithEmailAndPassword(auth, email, password);
       toast.success("Welcome back 👋");
-      router.push("/");
+      const redirectTo =
+  new URLSearchParams(window.location.search).get("redirect") || "/";
+
+router.push(redirectTo);
     } catch {
       toast.error("Invalid credentials");
     } finally {
@@ -41,7 +44,9 @@ function LoginContent() {
       setLoading(true);
       await signInWithPopup(auth, googleProvider);
       toast.success("Signed in with Google");
-      router.push("/");
+      const params = new URLSearchParams(window.location.search);
+      const redirectTo = params.get("redirect") || "/";
+      router.push(redirectTo);
     } catch {
       toast.error("Google sign-in failed");
     } finally {
