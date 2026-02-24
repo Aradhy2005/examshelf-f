@@ -69,6 +69,13 @@ export default function RootLayout({
           strategy="afterInteractive"
         />
         <Script id="google-analytics" strategy="afterInteractive">
+        {/* Google AdSense Verification */}
+<Script
+  async
+  src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-8776404324538637"
+  crossOrigin="anonymous"
+  strategy="afterInteractive"
+/>
           {`
             window.dataLayer = window.dataLayer || [];
             function gtag(){dataLayer.push(arguments);}
