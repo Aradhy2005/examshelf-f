@@ -3,9 +3,56 @@ import { doc, getDoc } from "firebase/firestore";
 import ReactMarkdown from "react-markdown";
 import Link from "next/link";
 
-export default async function NotesPage(props: any) {
+/* ---------- Helper Function ---------- */
 
-  const params = await props.params; // ✅ IMPORTANT
+async function getNote(slug: string) {
+  if (!slug) return null;
+
+  const snap = await getDoc(doc(db, "notes", slug));
+  if (!snap.exists()) return null;
+
+  return snap.data();
+}
+
+/* ---------- Metadata (FIXED) ---------- */
+
+export async function generateMetadata(props: any) {
+  const params = await props.params; // ✅ REQUIRED in Next 15/16
+  const slug = params?.slug;
+
+  if (!slug) {
+    return {
+      title: "Notes Not Found | ExamShelf",
+      description: "Requested note does not exist.",
+    };
+  }
+
+  const note = await getNote(slug);
+
+  if (!note) {
+    return {
+      title: "Notes Not Found | ExamShelf",
+      description: "Requested note does not exist.",
+    };
+  }
+
+  return {
+    title: `${note.title} | ExamShelf`,
+    description:
+      note.description ||
+      `Download ${note.title} free notes and exam study material.`,
+    openGraph: {
+      title: note.title,
+      description: note.description,
+      type: "article",
+    },
+  };
+}
+
+/* ---------- Page ---------- */
+
+export default async function NotesPage(props: any) {
+  const params = await props.params; // ✅ REQUIRED
   const slug = params?.slug;
 
   if (!slug) {
@@ -16,17 +63,15 @@ export default async function NotesPage(props: any) {
     );
   }
 
-  const snap = await getDoc(doc(db, "notes", slug));
+  const note = await getNote(slug);
 
-  if (!snap.exists()) {
+  if (!note) {
     return (
       <div className="min-h-screen text-white p-10">
         Notes not found
       </div>
     );
   }
-
-  const note = snap.data();
 
   return (
     <main className="min-h-screen px-6 py-24 text-white max-w-4xl mx-auto">
