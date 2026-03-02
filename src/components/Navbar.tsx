@@ -142,6 +142,7 @@ export default function Navbar() {
             <NavItem href="/" label="Home" mobile />
             <NavItem href="/subjects" label="Subjects" mobile />
             <NavItem href="/blog" label="Blog" mobile />
+            <NavItem href="/notes" label="Free Notes" mobile />
             {user && <NavItem href="/library" label="My Library" mobile />}
             {role === "admin" && <NavItem href="/admin" label="Admin Console" mobile />}
           </div>
