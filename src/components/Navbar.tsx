@@ -88,6 +88,8 @@ export default function Navbar() {
           <NavItem href="/" label="Home" />
           <NavItem href="/subjects" label="Subjects" />
           <NavItem href="/blog" label="Blog" />
+          <NavItem href="/notes" label="Free Notes" />
+        
           {!loading && user && <NavItem href="/library" label="My Library" />}
         </div>
 

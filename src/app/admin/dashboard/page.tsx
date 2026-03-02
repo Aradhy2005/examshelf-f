@@ -2,38 +2,20 @@
 
 import { useEffect, useState } from "react";
 import { db } from "@/lib/firebase";
-import { collection, getDocs } from "firebase/firestore";
+import { collection, getDocs, query, orderBy, limit } from "firebase/firestore";
 import Link from "next/link";
-
-import {
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  Tooltip,
-  ResponsiveContainer,
-} from "recharts";
-
-type Purchase = {
-  subjectId?: string;
-  unitId?: string;
-  amount?: number;
-  createdAt?: any;
-};
 
 export default function AdminDashboard() {
   const [stats, setStats] = useState({
     subjects: 0,
     units: 0,
     blogs: 0,
+    notes: 0,
     users: 0,
-    purchases: 0,
-    revenue: 0,
-    topSubjects: [] as [string, number][],
-    topUnits: [] as [string, number][],
-    recentPurchases: [] as Purchase[],
-    revenueTrend: [] as { date: string; amount: number }[],
   });
+
+  const [recentBlogs, setRecentBlogs] = useState<any[]>([]);
+  const [recentNotes, setRecentNotes] = useState<any[]>([]);
 
   useEffect(() => {
     const loadStats = async () => {
@@ -41,77 +23,35 @@ export default function AdminDashboard() {
         const subjectsSnap = await getDocs(collection(db, "subjects"));
         const unitsSnap = await getDocs(collection(db, "units"));
         const blogsSnap = await getDocs(collection(db, "blogs"));
+        const notesSnap = await getDocs(collection(db, "notes"));
         const usersSnap = await getDocs(collection(db, "users"));
-        const purchasesSnap = await getDocs(collection(db, "purchases"));
-
-        let revenue = 0;
-
-        const subjectSales: Record<string, number> = {};
-        const unitSales: Record<string, number> = {};
-        const revenueByDay: Record<string, number> = {};
-        const recentPurchases: Purchase[] = [];
-
-        purchasesSnap.forEach((doc) => {
-          const data = doc.data() as Purchase;
-
-          revenue += data.amount || 0;
-
-          // subject sales
-          if (data.subjectId) {
-            subjectSales[data.subjectId] =
-              (subjectSales[data.subjectId] || 0) + 1;
-          }
-
-          // unit sales
-          if (data.unitId) {
-            unitSales[data.unitId] =
-              (unitSales[data.unitId] || 0) + 1;
-          }
-
-          // revenue by day
-          if (data.createdAt?.seconds) {
-            const date = new Date(
-              data.createdAt.seconds * 1000
-            ).toLocaleDateString();
-
-            revenueByDay[date] =
-              (revenueByDay[date] || 0) + (data.amount || 0);
-          }
-
-          recentPurchases.push(data);
-        });
-
-        const topSubjects = Object.entries(subjectSales)
-          .sort((a, b) => b[1] - a[1])
-          .slice(0, 5);
-
-        const topUnits = Object.entries(unitSales)
-          .sort((a, b) => b[1] - a[1])
-          .slice(0, 5);
-
-        const revenueTrend = Object.entries(revenueByDay).map(
-          ([date, amount]) => ({ date, amount })
-        );
-
-        // sort latest purchases first
-        recentPurchases.sort(
-          (a: any, b: any) =>
-            (b.createdAt?.seconds || 0) -
-            (a.createdAt?.seconds || 0)
-        );
 
         setStats({
           subjects: subjectsSnap.size,
           units: unitsSnap.size,
           blogs: blogsSnap.size,
+          notes: notesSnap.size,
           users: usersSnap.size,
-          purchases: purchasesSnap.size,
-          revenue,
-          topSubjects,
-          topUnits,
-          revenueTrend,
-          recentPurchases: recentPurchases.slice(0, 5),
         });
+
+        // Recent blogs
+        const blogQuery = query(
+          collection(db, "blogs"),
+          orderBy("createdAt", "desc"),
+          limit(5)
+        );
+        const blogRecentSnap = await getDocs(blogQuery);
+        setRecentBlogs(blogRecentSnap.docs.map(doc => doc.data()));
+
+        // Recent notes
+        const notesQuery = query(
+          collection(db, "notes"),
+          orderBy("createdAt", "desc"),
+          limit(5)
+        );
+        const notesRecentSnap = await getDocs(notesQuery);
+        setRecentNotes(notesRecentSnap.docs.map(doc => doc.data()));
+
       } catch (error) {
         console.error("Dashboard error:", error);
       }
@@ -140,11 +80,17 @@ export default function AdminDashboard() {
             </button>
           </Link>
 
-          <Link href="/admin/subjects">
-            <button className="px-6 py-3 bg-gray-700 rounded-xl font-semibold hover:bg-gray-600">
-              ⚙ Manage Subjects
+          <Link href="/admin/notes">
+            <button className="px-6 py-3 bg-emerald-600 rounded-xl font-semibold hover:bg-emerald-500">
+              📘 Add Note
             </button>
           </Link>
+
+          <Link href="/admin/notes/manage">
+  <button className="px-6 py-3 bg-gray-700 rounded-xl font-semibold hover:bg-gray-600">
+    ⚙ Manage Notes
+  </button>
+</Link>
         </div>
 
         {/* CORE STATS */}
@@ -152,61 +98,25 @@ export default function AdminDashboard() {
           <StatCard title="Subjects" value={stats.subjects} />
           <StatCard title="Units" value={stats.units} />
           <StatCard title="Blogs" value={stats.blogs} />
+          <StatCard title="Notes" value={stats.notes} />
           <StatCard title="Users" value={stats.users} />
-          <StatCard title="Purchases" value={stats.purchases} />
-          <StatCard title="Revenue" value={`₹${stats.revenue}`} />
         </div>
 
-        {/* REVENUE TREND */}
-        <div className="mb-12">
-          <h2 className="text-xl font-semibold mb-4">Revenue Trend</h2>
-
-<div className="bg-white/5 rounded-2xl p-4">
-  <ResponsiveContainer width="100%" height={300}>
-    <LineChart data={stats.revenueTrend}>
-      <XAxis dataKey="date" stroke="#aaa" />
-      <YAxis stroke="#aaa" />
-      <Tooltip />
-      <Line
-        type="monotone"
-        dataKey="amount"
-        stroke="#8b5cf6"
-        strokeWidth={3}
-      />
-    </LineChart>
-  </ResponsiveContainer>
-</div>
-g
-        </div>
-
-        {/* TOP SUBJECTS */}
-        <Section title="Top Selling Subjects">
-          {stats.topSubjects.length === 0
-            ? "No sales yet"
-            : stats.topSubjects.map(([id, count]) => (
-                <Row key={id} label={id} value={`${count} sales`} />
+        {/* RECENT BLOGS */}
+        <Section title="Recent Blogs">
+          {recentBlogs.length === 0
+            ? "No blogs yet"
+            : recentBlogs.map((blog, i) => (
+                <Row key={i} label={blog.title} />
               ))}
         </Section>
 
-        {/* TOP UNITS */}
-        <Section title="Top Units Sold">
-          {stats.topUnits.length === 0
-            ? "No unit sales yet"
-            : stats.topUnits.map(([id, count]) => (
-                <Row key={id} label={id} value={`${count} sales`} />
-              ))}
-        </Section>
-
-        {/* RECENT PURCHASES */}
-        <Section title="Recent Purchases">
-          {stats.recentPurchases.length === 0
-            ? "No purchases yet"
-            : stats.recentPurchases.map((p, i) => (
-                <Row
-                  key={i}
-                  label={p.subjectId || "Unknown"}
-                  value={`₹${p.amount}`}
-                />
+        {/* RECENT NOTES */}
+        <Section title="Recent Notes">
+          {recentNotes.length === 0
+            ? "No notes yet"
+            : recentNotes.map((note, i) => (
+                <Row key={i} label={note.title} />
               ))}
         </Section>
 
@@ -233,11 +143,10 @@ function Section({ title, children }: any) {
   );
 }
 
-function Row({ label, value }: any) {
+function Row({ label }: any) {
   return (
-    <div className="flex justify-between py-2 border-b border-white/10">
-      <span>{label}</span>
-      <span>{value}</span>
+    <div className="py-2 border-b border-white/10">
+      {label}
     </div>
   );
 }
